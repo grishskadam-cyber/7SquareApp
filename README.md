@@ -1,0 +1,1 @@
+its an app create for Seven Square Acaemy for IT epartment that it will solve problem of the IT admin and engineers who repair the pc in the school by the help of the app the user can complaint about the pc orprojector or anything anf the IT engineers would get the alert on the website 
