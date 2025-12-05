@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Facility Manager</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --primary-orange: #f97316;
+            --primary-orange-dark: #ea580c;
+            --primary-orange-light: #fb923c;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #fef3c7 0%, #ffedd5 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Custom scrollbar */
+        .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: #fdba74 transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #fdba74;
+            border-radius: 10px;
+            border: 2px solid transparent;
+        }
+        
+        /* Smooth transitions */
+        * {
+            transition: all 0.3s ease;
+        }
+        
+        /* Drawer animation */
+        .drawer-open {
+            transform: translateX(0) !important;
+        }
+        
+        .drawer-closed {
+            transform: translateX(-100%) !important;
+        }
+        
+        /* Ripple effect */
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ripple:after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 5px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.5);
+            opacity: 0;
+            border-radius: 100%;
+            transform: scale(1, 1) translate(-50%);
+            transform-origin: 50% 50%;
+        }
+        
+        .ripple:focus:not(:active)::after {
+            animation: ripple 1s ease-out;
+        }
+        
+        @keyframes ripple {
+            0% {
+                transform: scale(0, 0);
+                opacity: 0.5;
+            }
+            100% {
+                transform: scale(20, 20);
+                opacity: 0;
+            }
+        }
+        
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        /* Pulse animation for new items */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        /* Deleted item style */
+        .deleted-item {
+            opacity: 0.7;
+            background: repeating-linear-gradient(
+                45deg,
+                #fef3c7,
+                #fef3c7 10px,
+                #fde68a 10px,
+                #fde68a 20px
+            );
+        }
+    </style>
+</head>
+<body class="relative">
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white transition-opacity duration-500">
+        <div class="text-center">
+            <!-- Logo Container -->
+            <div class="mb-8 relative">
+                <div class="w-32 h-32 mx-auto bg-gradient-to-br from-orange-400 to-orange-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-orange-200">
+                    <!-- Fallback logo if logo.jpg doesn't exist -->
+                    <div id="logo-fallback" class="text-white text-4xl font-bold">SFM</div>
+                    <img id="logo-image" src="logo.jpg" alt="School Logo" class="w-full h-full object-cover rounded-3xl hidden">
+                </div>
+                <div class="absolute -bottom-2 -right-2 w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                    <span class="material-icons-round text-white">build</span>
+                </div>
+            </div>
+            
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">School Facility Manager</h1>
+            <p class="text-gray-500">Professional Facility Management System</p>
+            
+            <!-- Loading dots -->
+            <div class="mt-8 flex justify-center space-x-2">
+                <div class="w-3 h-3 bg-orange-400 rounded-full animate-bounce" style="animation-delay: 0s"></div>
+                <div class="w-3 h-3 bg-orange-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                <div class="w-3 h-3 bg-orange-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="login-container" class="hidden min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-md">
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-orange-400 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <div id="login-logo-fallback" class="text-white text-2xl font-bold">SFM</div>
+                    <img id="login-logo-image" src="logo.jpg" alt="School Logo" class="w-full h-full object-cover rounded-2xl hidden">
+                </div>
+                <h1 class="text-3xl font-bold text-gray-800">Welcome Back</h1>
+                <p class="text-gray-500 mt-2">School Facility Management System</p>
+            </div>
+            
+            <div class="bg-white rounded-3xl shadow-xl p-8">
+                <form id="login-form" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                        <div class="relative">
+                            <span class="material-icons-round absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">person</span>
+                            <input type="text" id="username" name="username" required 
+                                   class="pl-12 w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 focus:outline-none transition">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <div class="relative">
+                            <span class="material-icons-round absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">lock</span>
+                            <input type="password" id="password" name="password" required 
+                                   class="pl-12 w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 focus:outline-none transition">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" 
+                            class="ripple w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 transform hover:-translate-y-0.5">
+                        Sign In to Dashboard
+                    </button>
+                    
+                    <div class="text-center text-sm text-gray-500 pt-4 border-t">
+                        <p>Use <span class="font-semibold">Admin / Admin123</span> for demo access</p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="main-app" class="hidden h-screen">
+        <!-- Top Navigation Bar -->
+        <header class="h-16 bg-white shadow-sm border-b border-gray-100 flex items-center justify-between px-4 md:px-6">
+            <!-- Left: Hamburger Menu and Logo -->
+            <div class="flex items-center space-x-4">
+                <button id="menu-toggle" class="p-2 rounded-lg hover:bg-orange-50 text-gray-600 hover:text-orange-600">
+                    <span class="material-icons-round text-2xl">menu</span>
+                </button>
+                
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center shadow">
+                        <div id="app-logo-fallback" class="text-white font-bold text-sm">SFM</div>
+                        <img id="app-logo-image" src="logo.jpg" alt="School Logo" class="w-full h-full object-cover rounded-xl hidden">
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-gray-800">School Facility Manager</h1>
+                        <p class="text-xs text-gray-500">Professional Management System</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right: User Info -->
+            <div class="flex items-center space-x-4">
+                <div class="hidden md:block text-right">
+                    <p class="font-medium text-gray-800" id="display-user-name">Administrator</p>
+                    <p class="text-xs text-gray-500 truncate max-w-[150px]" id="display-user-id">ID: Loading...</p>
+                </div>
+                <div class="w-10 h-10 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full flex items-center justify-center">
+                    <span class="material-icons-round text-orange-600">account_circle</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="flex h-[calc(100vh-4rem)]">
+            <!-- Side Drawer/Navigation -->
+            <div id="side-drawer" class="drawer-closed md:drawer-open fixed md:relative z-40 w-64 h-full bg-white border-r border-gray-100 shadow-lg md:shadow-none transform transition-transform duration-300">
+                <nav class="p-4 space-y-1 mt-4">
+                    <button onclick="showContent('dashboard')" class="nav-btn active-nav-btn w-full">
+                        <span class="material-icons-round mr-3">dashboard</span>
+                        Dashboard
+                    </button>
+                    
+                    <button onclick="showContent('form')" class="nav-btn w-full">
+                        <span class="material-icons-round mr-3">add_circle</span>
+                        New Complaint
+                    </button>
+                    
+                    <button onclick="showContent('history')" class="nav-btn w-full">
+                        <span class="material-icons-round mr-3">history</span>
+                        History
+                    </button>
+                    
+                    <button onclick="showContent('search')" class="nav-btn w-full">
+                        <span class="material-icons-round mr-3">search</span>
+                        Search
+                    </button>
+                    
+                    <button onclick="showContent('settings')" class="nav-btn w-full">
+                        <span class="material-icons-round mr-3">settings</span>
+                        Settings
+                    </button>
+                </nav>
+                
+                <!-- Quick Stats in Drawer -->
+                <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100">
+                    <div class="text-xs text-gray-500 mb-2">Quick Stats</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-orange-50 p-2 rounded-lg">
+                            <div class="text-lg font-bold text-orange-600" id="today-complaints">0</div>
+                            <div class="text-xs text-orange-500">Today</div>
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded-lg">
+                            <div class="text-lg font-bold text-gray-600" id="total-complaints">0</div>
+                            <div class="text-xs text-gray-500">Total</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Overlay for mobile drawer -->
+            <div id="drawer-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
+
+            <!-- Main Content -->
+            <main class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
+                <!-- Dashboard View (Default) -->
+                <div id="content-dashboard" class="content-view space-y-6">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-800">Facility Dashboard</h2>
+                            <p class="text-gray-500">Monitor and manage all facility complaints</p>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            <span class="material-icons-round align-text-bottom text-orange-500 text-lg">update</span>
+                            <span id="last-updated">Just now</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl p-6 border border-orange-100 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-orange-600 font-medium">Active Complaints</p>
+                                    <h3 class="text-3xl font-bold text-gray-800 mt-2" id="active-complaints">0</h3>
+                                </div>
+                                <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                                    <span class="material-icons-round text-orange-600 text-2xl">warning</span>
+                                </div>
+                            </div>
+                            <div class="mt-4 text-xs text-orange-500">
+                                <span class="material-icons-round align-text-bottom text-sm">trending_up</span>
+                                <span>Updated real-time</span>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-6 border border-blue-100 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-blue-600 font-medium">Resolved Today</p>
+                                    <h3 class="text-3xl font-bold text-gray-800 mt-2" id="resolved-today">0</h3>
+                                </div>
+                                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <span class="material-icons-round text-blue-600 text-2xl">check_circle</span>
+                                </div>
+                            </div>
+                            <div class="mt-4 text-xs text-blue-500">
+                                <span class="material-icons-round align-text-bottom text-sm">calendar_today</span>
+                                <span>Last 24 hours</span>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-green-600 font-medium">Deleted (24h)</p>
+                                    <h3 class="text-3xl font-bold text-gray-800 mt-2" id="deleted-24h">0</h3>
+                                </div>
+                                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                    <span class="material-icons-round text-green-600 text-2xl">delete</span>
+                                </div>
+                            </div>
+                            <div class="mt-4 text-xs text-green-500">
+                                <span class="material-icons-round align-text-bottom text-sm">history</span>
+                                <span>View in history</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-lg font-semibold text-gray-800">Recent Complaints</h3>
+                            <button onclick="showContent('history')" class="text-sm text-orange-600 hover:text-orange-700 font-medium">
+                                View All →
+                            </button>
+                        </div>
+                        <div id="recent-complaints" class="space-y-3">
+                            <!-- Recent complaints will be loaded here -->
+                            <div class="text-center py-8 text-gray-400">
+                                <span class="material-icons-round text-4xl mb-2">inbox</span>
+                                <p>No recent complaints</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Complaint Form View -->
+                <div id="content-form" class="content-view hidden">
+                    <div class="max-w-2xl mx-auto">
+                        <div class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-800 mb-2">Submit New Complaint</h2>
+                            <p class="text-gray-500">Report facility issues quickly and efficiently</p>
+                        </div>
+                        
+                        <form id="complaint-form" class="space-y-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Your Name</label>
+                                    <div class="relative">
+                                        <span class="material-icons-round absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">person</span>
+                                        <input type="text" id="name" name="name" required 
+                                               class="pl-12 w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 focus:outline-none transition">
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Floor Number</label>
+                                    <div class="relative">
+                                        <span class="material-icons-round absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">stairs</span>
+                                        <input type="number" id="floor-number" name="floor_number" required min="0" 
+                                               class="pl-12 w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 focus:outline-none transition">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Room Number</label>
+                                    <div class="relative">
+                                        <span class="material-icons-round absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">meeting_room</span>
+                                        <input type="number" id="room-number" name="room_number" required min="0" 
+                                               class="pl-12 w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 focus:outline-none transition">
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Priority Level</label>
+                                    <div class="flex space-x-4">
+                                        <label class="flex items-center">
+                                            <input type="radio" name="priority" value="low" class="mr-2 text-orange-500" checked>
+                                            <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">Low</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="radio" name="priority" value="medium" class="mr-2 text-orange-500">
+                                            <span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm">Medium</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="radio" name="priority" value="high" class="mr-2 text-orange-500">
+                                            <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm">High</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Problem Details</label>
+                                <div class="relative">
+                                    <span class="material-icons-round absolute left-3 top-3 text-gray-400">description</span>
+                                    <textarea id="problem-detail" name="problem_detail" rows="6" required 
+                                              class="pl-12 w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 focus:outline-none transition resize-none"></textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-end space-x-4 pt-4">
+                                <button type="button" onclick="showContent('dashboard')" 
+                                        class="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition">
+                                    Cancel
+                                </button>
+                                <button type="submit" 
+                                        class="ripple px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300">
+                                    <span class="material-icons-round align-text-bottom mr-2">send</span>
+                                    Submit Complaint
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- History View -->
+                <div id="content-history" class="content-view hidden">
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h2 class="text-2xl font-bold text-gray-800 mb-2">Complaint History</h2>
+                                <p class="text-gray-500">All complaints from last 24 hours (deleted items visible)</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="toggleShowDeleted()" id="toggle-deleted-btn" class="px-4 py-2 bg-orange-100 text-orange-700 rounded-full text-sm font-medium flex items-center">
+                                    <span class="material-icons-round text-sm mr-1">visibility</span>
+                                    Show Deleted
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <!-- History Filter -->
+                        <div class="p-6 border-b border-gray-100">
+                            <div class="flex flex-wrap gap-4">
+                                <button onclick="filterHistory('all')" class="history-filter-btn active px-4 py-2 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">All (24h)</button>
+                                <button onclick="filterHistory('active')" class="history-filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">Active</button>
+                                <button onclick="filterHistory('deleted')" class="history-filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">Deleted</button>
+                                <button onclick="filterHistory('high')" class="history-filter-btn px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">High Priority</button>
+                            </div>
+                        </div>
+                        
+                        <!-- History List -->
+                        <div id="history-list" class="divide-y divide-gray-100 max-h-[500px] overflow-y-auto custom-scrollbar">
+                            <!-- History items will be loaded here -->
+                            <div class="text-center py-12 text-gray-400">
+                                <span class="material-icons-round text-4xl mb-2">history</span>
+                                <p>Loading history...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search View -->
+                <div id="content-search" class="content-view hidden">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-800 mb-2">Search Complaints</h2>
+                            <p class="text-gray-500">Search through all complaints by name, room, or problem details</p>
+                        </div>
+                        
+                        <!-- Search Box -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+                            <div class="relative">
+                                <span class="material-icons-round absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">search</span>
+                                <input type="text" id="search-input" placeholder="Search by name, room number, floor, or problem..." 
+                                       class="pl-12 w-full px-4 py-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 focus:outline-none transition">
+                            </div>
+                            <div class="flex flex-wrap gap-4 mt-4">
+                                <button onclick="searchComplaints()" class="ripple px-6 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-xl hover:shadow-lg transition">
+                                    Search
+                                </button>
+                                <button onclick="clearSearch()" class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition">
+                                    Clear
+                                </button>
+                                <div class="ml-auto">
+                                    <label class="flex items-center text-sm text-gray-600">
+                                        <input type="checkbox" id="include-deleted-search" class="mr-2 rounded text-orange-500">
+                                        Include deleted items
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Search Results -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div class="p-6 border-b border-gray-100">
+                                <h3 class="text-lg font-semibold text-gray-800">Search Results</h3>
+                                <p class="text-sm text-gray-500" id="search-results-count">Enter search terms above</p>
+                            </div>
+                            <div id="search-results" class="divide-y divide-gray-100 max-h-[500px] overflow-y-auto custom-scrollbar">
+                                <div class="text-center py-12 text-gray-400">
+                                    <span class="material-icons-round text-4xl mb-2">search</span>
+                                    <p>Enter search terms to find complaints</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings View -->
+                <div id="content-settings" class="content-view hidden">
+                    <div class="max-w-2xl mx-auto">
+                        <div class="mb-8">
+                            <h2 class="text-2xl font-bold text-gray-800 mb-2">Settings</h2>
+                            <p class="text-gray-500">Manage your application preferences</p>
+                        </div>
+                        
+                        <div class="space-y-6">
+                            <!-- Data Retention Settings -->
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Data Retention</h3>
+                                <div class="space-y-4">
+                                    <div>
+                                        <p class="font-medium text-gray-700 mb-2">Deleted Items Retention</p>
+                                        <p class="text-sm text-gray-500 mb-3">Deleted complaints are kept in history for:</p>
+                                        <select id="retention-period" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                                            <option value="24">24 hours</option>
+                                            <option value="48">48 hours</option>
+                                            <option value="72">72 hours</option>
+                                            <option value="168">1 week</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="flex items-center justify-between pt-4 border-t">
+                                        <div>
+                                            <p class="font-medium text-gray-700">Auto-cleanup</p>
+                                            <p class="text-sm text-gray-500">Automatically remove old deleted items</p>
+                                        </div>
+                                        <label class="switch">
+                                            <input type="checkbox" id="auto-cleanup" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- App Info -->
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Application Information</h3>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Version</span>
+                                        <span class="font-medium">2.1.0 (History Retention)</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Database</span>
+                                        <span class="font-medium">Supabase PostgreSQL</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Last Sync</span>
+                                        <span class="font-medium" id="db-last-updated">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Logout Button -->
+                            <div class="text-center pt-6">
+                                <button onclick="logout()" 
+                                        class="ripple px-8 py-3 border border-red-300 text-red-600 font-medium rounded-xl hover:bg-red-50 transition inline-flex items-center">
+                                    <span class="material-icons-round align-text-bottom mr-2">logout</span>
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Status Toast -->
+    <div id="status-toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-xl shadow-lg transform translate-y-full transition-transform duration-300 z-50 hidden">
+        <div class="flex items-center">
+            <span class="material-icons-round mr-3" id="toast-icon">check_circle</span>
+            <span id="toast-message">Operation completed successfully</span>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal for Delete -->
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+                    <span class="material-icons-round text-red-600 text-3xl">delete_forever</span>
+                </div>
+                <h3 class="text-xl font-bold text-gray-800 mb-2">Delete Complaint</h3>
+                <p class="text-gray-600">This complaint will be moved to history and visible for 24 hours. Are you sure?</p>
+            </div>
+            <div class="flex justify-center space-x-4">
+                <button onclick="hideDeleteModal()" class="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button onclick="confirmDelete()" class="ripple px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium rounded-xl hover:shadow-lg transition">
+                    Yes, Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Supabase Configuration ---
+        const SUPABASE_URL = 'https://fclfxgclfhmnjdeytcyk.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_s9f_U0JYhB6KGTqa3Gc4Bg_LQGpOWdI';
+        
+        // Initialize Supabase client
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // --- Global Variables ---
+        let currentUserId = null;
+        let currentUserName = 'Administrator';
+        let complaintsData = [];
+        let showDeletedInHistory = false;
+        let currentFilter = 'all';
+        let complaintToDelete = null;
+        let retentionHours = 24;
+        
+        // --- DOM Elements ---
+        const splashScreen = document.getElementById('splash-screen');
+        const loginContainer = document.getElementById('login-container');
+        const mainApp = document.getElementById('main-app');
+        const loginForm = document.getElementById('login-form');
+        const complaintForm = document.getElementById('complaint-form');
+        const menuToggle = document.getElementById('menu-toggle');
+        const sideDrawer = document.getElementById('side-drawer');
+        const drawerOverlay = document.getElementById('drawer-overlay');
+        const contentViews = document.querySelectorAll('.content-view');
+        const navButtons = document.querySelectorAll('.nav-btn');
+        const logoImages = document.querySelectorAll('[id$="-logo-image"]');
+        const logoFallbacks = document.querySelectorAll('[id$="-logo-fallback"]');
+        
+        // --- Utility Functions ---
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('status-toast');
+            const messageEl = document.getElementById('toast-message');
+            const icon = document.getElementById('toast-icon');
+            
+            messageEl.textContent = message;
+            
+            // Set icon and color based on type
+            if (type === 'success') {
+                icon.textContent = 'check_circle';
+                toast.className = toast.className.replace(/bg-\w+-\d+/, 'bg-green-600');
+            } else if (type === 'error') {
+                icon.textContent = 'error';
+                toast.className = toast.className.replace(/bg-\w+-\d+/, 'bg-red-600');
+            } else if (type === 'info') {
+                icon.textContent = 'info';
+                toast.className = toast.className.replace(/bg-\w+-\d+/, 'bg-blue-600');
+            } else {
+                icon.textContent = 'warning';
+                toast.className = toast.className.replace(/bg-\w+-\d+/, 'bg-yellow-600');
+            }
+            
+            toast.classList.remove('hidden', 'translate-y-full');
+            toast.classList.add('translate-y-0');
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0');
+                toast.classList.add('translate-y-full');
+            }, 3000);
+        }
+        
+        // --- Delete Modal Functions ---
+        function showDeleteModal(complaintId) {
+            complaintToDelete = complaintId;
+            document.getElementById('delete-modal').classList.remove('hidden');
+        }
+        
+        function hideDeleteModal() {
+            complaintToDelete = null;
+            document.getElementById('delete-modal').classList.add('hidden');
+        }
+        
+        async function confirmDelete() {
+            if (!complaintToDelete) return;
+            
+            try {
+                const { error } = await supabase
+                    .from('complaints')
+                    .update({ 
+                        deleted: true,
+                        deleted_at: new Date().toISOString()
+                    })
+                    .eq('id', complaintToDelete);
+                
+                if (error) throw error;
+                
+                hideDeleteModal();
+                showToast('Complaint moved to history (visible for 24 hours)', 'info');
+                
+                // Refresh data
+                updateDashboardStats();
+                if (currentFilter === 'history') {
+                    loadHistory();
+                }
+                
+            } catch (error) {
+                console.error("Error deleting complaint:", error);
+                showToast('Error deleting complaint: ' + error.message, 'error');
+            }
+        }
+        
+        // --- Navigation & Drawer Functions ---
+        function toggleDrawer() {
+            sideDrawer.classList.toggle('drawer-open');
+            sideDrawer.classList.toggle('drawer-closed');
+            drawerOverlay.classList.toggle('hidden');
+        }
+        
+        function closeDrawer() {
+            if (window.innerWidth < 768) {
+                sideDrawer.classList.remove('drawer-open');
+                sideDrawer.classList.add('drawer-closed');
+                drawerOverlay.classList.add('hidden');
+            }
+        }
+        
+        window.showContent = function(viewName) {
+            // Hide all content views
+            contentViews.forEach(view => {
+                view.classList.add('hidden');
+                view.classList.remove('fade-in');
+            });
+            
+            // Show the requested view
+            const targetView = document.getElementById(`content-${viewName}`);
+            if (targetView) {
+                targetView.classList.remove('hidden');
+                setTimeout(() => {
+                    targetView.classList.add('fade-in');
+                }, 10);
+                
+                // Load data if needed
+                if (viewName === 'history') {
+                    loadHistory();
+                } else if (viewName === 'dashboard') {
+                    updateDashboardStats();
+                } else if (viewName === 'search') {
+                    clearSearch();
+                }
+            }
+            
+            // Update active navigation button
+            navButtons.forEach(btn => {
+                btn.classList.remove('active-nav-btn', 'bg-orange-50', 'text-orange-600');
+                btn.classList.add('text-gray-600', 'hover:bg-gray-50');
+            });
+            
+            const activeBtn = Array.from(navButtons).find(btn => 
+                btn.onclick && btn.onclick.toString().includes(`'${viewName}'`)
+            );
+            
+            if (activeBtn) {
+                activeBtn.classList.add('active-nav-btn', 'bg-orange-50', 'text-orange-600');
+                activeBtn.classList.remove('text-gray-600', 'hover:bg-gray-50');
+            }
+            
+            // Close drawer on mobile
+            closeDrawer();
+        };
+        
+        // --- Logo Handling ---
+        function checkAndLoadLogo() {
+            logoImages.forEach(img => {
+                const fallback = img.id.replace('-image', '-fallback');
+                const fallbackEl = document.getElementById(fallback);
+                
+                img.onload = function() {
+                    img.classList.remove('hidden');
+                    if (fallbackEl) fallbackEl.classList.add('hidden');
+                };
+                
+                img.onerror = function() {
+                    img.classList.add('hidden');
+                    if (fallbackEl) fallbackEl.classList.remove('hidden');
+                };
+                
+                // Trigger check
+                img.src = img.src;
+            });
+        }
+        
+        // --- Application Initialization ---
+        async function initializeApp() {
+            // Show splash screen for 3 seconds
+            setTimeout(() => {
+                splashScreen.style.opacity = '0';
+                setTimeout(() => {
+                    splashScreen.classList.add('hidden');
+                    
+                    // Check if user is already logged in
+                    const savedUserId = localStorage.getItem('facility_user_id');
+                    if (savedUserId) {
+                        currentUserId = savedUserId;
+                        document.getElementById('display-user-id').textContent = `ID: ${currentUserId.slice(0, 8)}...`;
+                        loginContainer.classList.add('hidden');
+                        mainApp.classList.remove('hidden');
+                        checkAndLoadLogo();
+                        showContent('dashboard');
+                        updateDashboardStats();
+                    } else {
+                        loginContainer.classList.remove('hidden');
+                        checkAndLoadLogo();
+                    }
+                }, 500);
+            }, 3000);
+            
+            // Setup event listeners
+            menuToggle.addEventListener('click', toggleDrawer);
+            drawerOverlay.addEventListener('click', closeDrawer);
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 768) {
+                    sideDrawer.classList.remove('drawer-closed');
+                    sideDrawer.classList.add('drawer-open');
+                    drawerOverlay.classList.add('hidden');
+                }
+            });
+            
+            // Setup search input enter key listener
+            document.getElementById('search-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchComplaints();
+                }
+            });
+        }
+        
+        // --- Login Logic ---
+        loginForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+        
+            // Hardcoded Credentials Check
+            const requiredUsername = 'Admin';
+            const requiredPassword = 'Admin123';
+        
+            if (username === requiredUsername && password === requiredPassword) {
+                // Generate user ID
+                const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                localStorage.setItem('facility_user_id', userId);
+                currentUserId = userId;
+                
+                // Update UI
+                document.getElementById('display-user-id').textContent = `ID: ${userId.slice(0, 8)}...`;
+                currentUserName = username;
+                document.getElementById('display-user-name').textContent = currentUserName;
+                
+                // Transition to main app
+                loginContainer.classList.add('hidden');
+                mainApp.classList.remove('hidden');
+                checkAndLoadLogo();
+                showContent('dashboard');
+                updateDashboardStats();
+                
+                showToast('Login successful! Welcome to Facility Manager', 'success');
+                
+            } else {
+                showToast('Invalid credentials. Please try again.', 'error');
+            }
+        };
+        
+        // --- Logout Function ---
+        window.logout = function() {
+            localStorage.removeItem('facility_user_id');
+            currentUserId = null;
+            
+            mainApp.classList.add('hidden');
+            loginContainer.classList.remove('hidden');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            
+            showToast('Logged out successfully', 'success');
+        };
+        
+        // --- Complaint Submission ---
+        complaintForm.onsubmit = async (e) => {
+            e.preventDefault();
+            
+            if (!currentUserId) {
+                showToast('Please log in first', 'error');
+                return;
+            }
+        
+            const formData = new FormData(complaintForm);
+            const priority = document.querySelector('input[name="priority"]:checked').value;
+            
+            const complaintData = {
+                name: formData.get('name'),
+                floor_number: parseInt(formData.get('floor_number'), 10),
+                room_number: parseInt(formData.get('room_number'), 10),
+                problem_detail: formData.get('problem_detail'),
+                priority: priority,
+                user_id: currentUserId,
+                status: 'pending',
+                deleted: false,
+                created_at: new Date().toISOString()
+            };
+            
+            try {
+                const { data, error } = await supabase
+                    .from('complaints')
+                    .insert([complaintData])
+                    .select();
+        
+                if (error) throw error;
+                
+                complaintForm.reset();
+                showToast('Complaint submitted successfully!', 'success');
+                
+                // Update dashboard
+                updateDashboardStats();
+                
+                // Switch to history view
+                setTimeout(() => {
+                    showContent('history');
+                }, 1000);
+        
+            } catch (error) {
+                console.error("Error submitting complaint:", error);
+                showToast('Error submitting complaint: ' + error.message, 'error');
+            }
+        };
+        
+        // --- History Functions ---
+        function toggleShowDeleted() {
+            showDeletedInHistory = !showDeletedInHistory;
+            const button = document.getElementById('toggle-deleted-btn');
+            if (showDeletedInHistory) {
+                button.innerHTML = '<span class="material-icons-round text-sm mr-1">visibility_off</span>Hide Deleted';
+                button.classList.remove('bg-orange-100', 'text-orange-700');
+                button.classList.add('bg-gray-100', 'text-gray-700');
+            } else {
+                button.innerHTML = '<span class="material-icons-round text-sm mr-1">visibility</span>Show Deleted';
+                button.classList.remove('bg-gray-100', 'text-gray-700');
+                button.classList.add('bg-orange-100', 'text-orange-700');
+            }
+            loadHistory();
+        }
+        
+        function filterHistory(filter) {
+            currentFilter = filter;
+            
+            // Update button styles
+            document.querySelectorAll('.history-filter-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-orange-100', 'text-orange-700');
+                btn.classList.add('bg-gray-100', 'text-gray-700');
+            });
+            
+            const activeBtn = document.querySelector(`.history-filter-btn[onclick="filterHistory('${filter}')"]`);
+            if (activeBtn) {
+                activeBtn.classList.add('active', 'bg-orange-100', 'text-orange-700');
+                activeBtn.classList.remove('bg-gray-100', 'text-gray-700');
+            }
+            
+            loadHistory();
+        }
+        
+        async function loadHistory() {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '<div class="text-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div><p class="mt-2 text-gray-500">Loading history...</p></div>';
+        
+            try {
+                // Calculate 24 hours ago
+                const twentyFourHoursAgo = new Date();
+                twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - retentionHours);
+                
+                let query = supabase
+                    .from('complaints')
+                    .select('*')
+                    .eq('user_id', currentUserId)
+                    .gte('created_at', twentyFourHoursAgo.toISOString())
+                    .order('created_at', { ascending: false });
+                
+                // Apply filters
+                if (currentFilter === 'active') {
+                    query = query.eq('deleted', false);
+                } else if (currentFilter === 'deleted') {
+                    query = query.eq('deleted', true);
+                } else if (currentFilter === 'high') {
+                    query = query.eq('priority', 'high');
+                }
+                // 'all' shows everything from last 24h
+                
+                const { data, error } = await query;
+        
+                if (error) throw error;
+        
+                complaintsData = data || [];
+                historyList.innerHTML = '';
+                
+                if (complaintsData.length === 0) {
+                    historyList.innerHTML = '<div class="text-center py-12 text-gray-400"><span class="material-icons-round text-4xl mb-2">inbox</span><p>No complaints found in the last 24 hours</p></div>';
+                    return;
+                }
+        
+                complaintsData.forEach((complaint, index) => {
+                    const date = new Date(complaint.created_at);
+                    const dateString = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    // Priority badge color
+                    let priorityColor = 'bg-gray-100 text-gray-700';
+                    if (complaint.priority === 'high') priorityColor = 'bg-red-100 text-red-700';
+                    else if (complaint.priority === 'medium') priorityColor = 'bg-yellow-100 text-yellow-700';
+                    else if (complaint.priority === 'low') priorityColor = 'bg-green-100 text-green-700';
+                    
+                    // Status badge color
+                    let statusColor = 'bg-blue-100 text-blue-700';
+                    let statusText = complaint.status || 'pending';
+                    if (statusText === 'resolved') statusColor = 'bg-green-100 text-green-700';
+                    else if (statusText === 'in_progress') statusColor = 'bg-yellow-100 text-yellow-700';
+                    
+                    // Deleted styling
+                    const isDeleted = complaint.deleted === true;
+                    const deletedClass = isDeleted ? 'deleted-item' : '';
+                    const deletedBadge = isDeleted ? '<span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full ml-2">Deleted</span>' : '';
+                    
+                    const historyItem = document.createElement('div');
+                    historyItem.className = `p-6 hover:bg-gray-50 transition ${deletedClass} ${index === 0 && !isDeleted ? 'pulse' : ''}`;
+                    historyItem.innerHTML = `
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div class="flex-1">
+                                <div class="flex items-center flex-wrap gap-2 mb-2">
+                                    <span class="font-semibold text-gray-800">${complaint.name}</span>
+                                    <span class="text-sm ${priorityColor} px-3 py-1 rounded-full">${complaint.priority}</span>
+                                    <span class="text-sm ${statusColor} px-3 py-1 rounded-full">${statusText}</span>
+                                    ${deletedBadge}
+                                </div>
+                                <p class="text-gray-600 text-sm mb-2">Floor ${complaint.floor_number}, Room ${complaint.room_number}</p>
+                                <p class="text-gray-700">${complaint.problem_detail}</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm text-gray-500 mb-2">${dateString}</div>
+                                ${!isDeleted ? `
+                                    <button onclick="showDeleteModal('${complaint.id}')" 
+                                            class="text-xs text-red-600 hover:text-red-800 flex items-center justify-end">
+                                        <span class="material-icons-round text-sm mr-1">delete</span>
+                                        Delete
+                                    </button>
+                                ` : ''}
+                                <div class="text-xs text-gray-400">ID: ${complaint.id.slice(0, 8)}...</div>
+                            </div>
+                        </div>
+                    `;
+                    historyList.appendChild(historyItem);
+                });
+        
+            } catch (error) {
+                console.error("Error loading history:", error);
+                historyList.innerHTML = '<div class="text-center py-12 text-red-500"><span class="material-icons-round text-4xl mb-2">error</span><p>Error loading history</p><p class="text-sm">' + error.message + '</p></div>';
+            }
+        }
+        
+        // --- Search Functions ---
+        async function searchComplaints() {
+            const searchInput = document.getElementById('search-input').value.toLowerCase().trim();
+            const includeDeleted = document.getElementById('include-deleted-search').checked;
+            const resultsContainer = document.getElementById('search-results');
+            const resultsCount = document.getElementById('search-results-count');
+            
+            if (!searchInput) {
+                showToast('Please enter search terms', 'info');
+                return;
+            }
+            
+            resultsContainer.innerHTML = '<div class="text-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div><p class="mt-2 text-gray-500">Searching...</p></div>';
+            
+            try {
+                let query = supabase
+                    .from('complaints')
+                    .select('*')
+                    .eq('user_id', currentUserId);
+                
+                // Filter out deleted items unless checkbox is checked
+                if (!includeDeleted) {
+                    query = query.eq('deleted', false);
+                }
+                
+                const { data, error } = await query;
+                
+                if (error) throw error;
+                
+                const allComplaints = data || [];
+                
+                // Perform client-side search
+                const searchResults = allComplaints.filter(complaint => {
+                    return (
+                        complaint.name.toLowerCase().includes(searchInput) ||
+                        complaint.floor_number.toString().includes(searchInput) ||
+                        complaint.room_number.toString().includes(searchInput) ||
+                        complaint.problem_detail.toLowerCase().includes(searchInput) ||
+                        complaint.priority.toLowerCase().includes(searchInput)
+                    );
+                });
+                
+                // Display results
+                resultsCount.textContent = `Found ${searchResults.length} result${searchResults.length !== 1 ? 's' : ''}`;
+                
+                if (searchResults.length === 0) {
+                    resultsContainer.innerHTML = '<div class="text-center py-12 text-gray-400"><span class="material-icons-round text-4xl mb-2">search_off</span><p>No complaints found matching your search</p></div>';
+                    return;
+                }
+                
+                resultsContainer.innerHTML = '';
+                
+                searchResults.forEach((complaint) => {
+                    const date = new Date(complaint.created_at);
+                    const dateString = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    // Priority badge color
+                    let priorityColor = 'bg-gray-100 text-gray-700';
+                    if (complaint.priority === 'high') priorityColor = 'bg-red-100 text-red-700';
+                    else if (complaint.priority === 'medium') priorityColor = 'bg-yellow-100 text-yellow-700';
+                    else if (complaint.priority === 'low') priorityColor = 'bg-green-100 text-green-700';
+                    
+                    const isDeleted = complaint.deleted === true;
+                    const deletedClass = isDeleted ? 'deleted-item' : '';
+                    const deletedBadge = isDeleted ? '<span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full ml-2">Deleted</span>' : '';
+                    
+                    const resultItem = document.createElement('div');
+                    resultItem.className = `p-6 hover:bg-gray-50 transition ${deletedClass}`;
+                    resultItem.innerHTML = `
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div class="flex-1">
+                                <div class="flex items-center flex-wrap gap-2 mb-2">
+                                    <span class="font-semibold text-gray-800">${complaint.name}</span>
+                                    <span class="text-sm ${priorityColor} px-3 py-1 rounded-full">${complaint.priority}</span>
+                                    ${deletedBadge}
+                                </div>
+                                <p class="text-gray-600 text-sm mb-2">Floor ${complaint.floor_number}, Room ${complaint.room_number}</p>
+                                <p class="text-gray-700">${complaint.problem_detail}</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm text-gray-500 mb-2">${dateString}</div>
+                                ${!isDeleted ? `
+                                    <button onclick="showDeleteModal('${complaint.id}')" 
+                                            class="text-xs text-red-600 hover:text-red-800 flex items-center justify-end">
+                                        <span class="material-icons-round text-sm mr-1">delete</span>
+                                        Delete
+                                    </button>
+                                ` : ''}
+                                <div class="text-xs text-gray-400">ID: ${complaint.id.slice(0, 8)}...</div>
+                            </div>
+                        </div>
+                    `;
+                    resultsContainer.appendChild(resultItem);
+                });
+                
+            } catch (error) {
+                console.error("Error searching complaints:", error);
+                resultsContainer.innerHTML = '<div class="text-center py-12 text-red-500"><span class="material-icons-round text-4xl mb-2">error</span><p>Error searching complaints</p><p class="text-sm">' + error.message + '</p></div>';
+            }
+        }
+        
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('include-deleted-search').checked = false;
+            document.getElementById('search-results-count').textContent = 'Enter search terms above';
+            document.getElementById('search-results').innerHTML = `
+                <div class="text-center py-12 text-gray-400">
+                    <span class="material-icons-round text-4xl mb-2">search</span>
+                    <p>Enter search terms to find complaints</p>
+                </div>
+            `;
+        }
+        
+        // --- Dashboard Statistics ---
+        async function updateDashboardStats() {
+            if (!currentUserId) return;
+        
+            try {
+                const { data, error } = await supabase
+                    .from('complaints')
+                    .select('*')
+                    .eq('user_id', currentUserId);
+        
+                if (error) throw error;
+        
+                const complaints = data || [];
+                complaintsData = complaints;
+        
+                // Calculate stats
+                const now = new Date();
+                const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                const todayComplaints = complaints.filter(c => new Date(c.created_at) > oneDayAgo);
+                const activeComplaints = complaints.filter(c => c.deleted !== true && c.status !== 'resolved');
+                const deleted24h = complaints.filter(c => c.deleted === true && new Date(c.created_at) > oneDayAgo);
+                
+                // Update DOM
+                document.getElementById('today-complaints').textContent = todayComplaints.length;
+                document.getElementById('total-complaints').textContent = complaints.length;
+                document.getElementById('active-complaints').textContent = activeComplaints.length;
+                document.getElementById('resolved-today').textContent = todayComplaints.filter(c => c.status === 'resolved').length;
+                document.getElementById('deleted-24h').textContent = deleted24h.length;
+                document.getElementById('last-updated').textContent = 'Updated just now';
+                document.getElementById('db-last-updated').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                // Update recent complaints (only non-deleted)
+                const recentContainer = document.getElementById('recent-complaints');
+                recentContainer.innerHTML = '';
+                
+                const recentComplaints = complaints
+                    .filter(c => c.deleted !== true)
+                    .slice(0, 5);
+                    
+                recentComplaints.forEach(complaint => {
+                    const date = new Date(complaint.created_at);
+                    const timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition';
+                    item.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                                <span class="material-icons-round text-orange-600">build</span>
+                            </div>
+                            <div>
+                                <p class="font-medium text-gray-800">${complaint.name}</p>
+                                <p class="text-sm text-gray-500">Floor ${complaint.floor_number}, Room ${complaint.room_number}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-sm text-gray-500">${timeString}</span>
+                            <div class="text-xs ${complaint.priority === 'high' ? 'text-red-500' : complaint.priority === 'medium' ? 'text-yellow-500' : 'text-green-500'}">${complaint.priority}</div>
+                        </div>
+                    `;
+                    recentContainer.appendChild(item);
+                });
+                
+                if (recentComplaints.length === 0) {
+                    recentContainer.innerHTML = '<div class="text-center py-8 text-gray-400"><span class="material-icons-round text-4xl mb-2">inbox</span><p>No recent complaints</p></div>';
+                }
+        
+            } catch (error) {
+                console.error("Error updating dashboard:", error);
+            }
+        }
+        
+        // --- Initial Setup ---
+        window.onload = initializeApp;
+        
+        // Add switch toggle styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .switch {
+                position: relative;
+                display: inline-block;
+                width: 60px;
+                height: 34px;
+            }
+            .switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+            .slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: #ccc;
+                transition: .4s;
+                border-radius: 34px;
+            }
+            .slider:before {
+                position: absolute;
+                content: "";
+                height: 26px;
+                width: 26px;
+                left: 4px;
+                bottom: 4px;
+                background-color: white;
+                transition: .4s;
+                border-radius: 50%;
+            }
+            input:checked + .slider {
+                background-color: #f97316;
+            }
+            input:checked + .slider:before {
+                transform: translateX(26px);
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
